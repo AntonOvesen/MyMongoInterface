@@ -12,6 +12,6 @@ namespace MyMongoInterface.Models.Entities
         public string Title { get; set; }
 
         [BsonElement("length")]
-        public TimeSpan Length { get; set; }
+        public TimeSpan? Length { get; set; }
     }
 }

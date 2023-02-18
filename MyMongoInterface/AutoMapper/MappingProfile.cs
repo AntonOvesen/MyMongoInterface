@@ -9,7 +9,7 @@ public class MappingProfile : Profile
     public MappingProfile()
     {
         CreateMap<StudentDTO, Student>().ReverseMap();
-        CreateMap<CourseDTO, Course>().ForMember(x => x.Length, dest => dest.MapFrom(src => new TimeSpan(src.Days, 0, 0, 0)));
-        CreateMap<Course, CourseDTO>().ForMember(x => x.Days, dest => dest.MapFrom(src => src.Length.Days));
+        CreateMap<CourseDTO, Course>().ForMember(x => x.Length, dest => dest.MapFrom(src => src.Days.HasValue ? new TimeSpan(src.Days.Value, 0, 0, 0) : default));
+        CreateMap<Course, CourseDTO>().ForMember(x => x.Days, dest => dest.MapFrom(src => src.Length.Value.Days));
     }
 }

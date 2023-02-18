@@ -6,8 +6,8 @@ namespace MyMongoInterface.Models.DTOs
 {
     public class CourseDTO
     {
-        public string Title { get; set; }
+        public string? Title { get; set; }
 
-        public int Days { get; set; }
+        public int? Days { get; set; }
     }
 }

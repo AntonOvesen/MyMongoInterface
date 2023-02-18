@@ -1,9 +1,11 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
+using MyMongoInterface.Extensions;
 using MyMongoInterface.Models.DTOs;
 using MyMongoInterface.Models.Entities;
 using MyMongoInterface.Persistence;
+using System;
 
 namespace MyMongoInterface.Controllers
 {
@@ -20,28 +22,47 @@ namespace MyMongoInterface.Controllers
             this.mapper = mapper;
         }
 
-        private StudentContext Context => provider.CreateScope().ServiceProvider.GetRequiredService<StudentContext>();
-
         [HttpPost]
-        public async Task<ActionResult<string>> CreateCourse([FromBody] CourseDTO course)
+        public async Task<ActionResult<string>> CreateCourse([FromBody] CourseDTO course, [FromServices] StudentContext context)
         {
             var entity = mapper.Map<Course>(course);
 
-            await Context.Courses.InsertOneAsync(entity);
+            await context.Courses.InsertOneAsync(entity);
 
             return Ok(entity.Id);
         }
 
-        [HttpGet("fromstudent/{id}")]
-        public async Task<ActionResult<List<CourseDTO>>> GetCoursesForStudent([FromRoute] string id)
+        [HttpGet("{id}")]
+        public async Task<ActionResult<CourseDTO>> GetCourse([FromRoute] string id, [FromServices] StudentContext context)
         {
-            var context = Context;
+            var entity = await context.Courses.Find(x => x.Id == id).FirstAsync();
 
-            var student = await context.Students.Find(x => x.Id == id).FirstOrDefaultAsync();
+            return entity != null ? Ok(entity) : NotFound(id);
+        }
+        
+        [HttpGet]
+        public async Task<ActionResult<List<CourseDTO>>> GetCourses([FromServices] StudentContext context)
+        {
+            return Ok(await context.Courses.Find(_ => true).ToListAsync());
+        }
 
-            var courses = await context.Courses.Find(c => student.Courses.Contains(c.Id)).ToListAsync();
+        [HttpPut("{id}")]
+        public async Task<ActionResult> UpdateCourse([FromRoute] string id, [FromBody] CourseDTO course, [FromServices] StudentContext context)
+        {
+            var entity = await context.Courses.Find(x => x.Id == id).FirstOrDefaultAsync();
+            
+            entity.Id = id;
+            entity.UpdateFromDTO(course);
 
-            return mapper.Map<List<CourseDTO>>(courses);
+            await context.Courses.FindOneAndReplaceAsync(x => x.Id == id, entity);
+            
+            return Ok();
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<ActionResult> DeleteCourse([FromRoute] string id, [FromServices] StudentContext context)
+        {
+            return Ok(await context.Courses.DeleteOneAsync(x => x.Id == id));
         }
     }
 }
