@@ -13,18 +13,4 @@ public static class IServiceCollectionExtensions
             return (Activator.CreateInstance(typeof(TContext), database, configuration) as TContext)!;
         });
     }
-
-    public static void AddPlugins(this IServiceCollection services)
-    {
-        var configurations = AppDomain.CurrentDomain
-            .GetAssemblies()
-            .SelectMany(o => o.GetTypes())
-            .Where(o => o.IsClass && !o.IsAbstract && o.IsSubclassOf(typeof(IPluginBase)))
-            .Select(o => (IPluginBase)Activator.CreateInstance(o)!)
-            .Where(o => o is not null)
-            .ToList();
-        
-
-
-    }
 }
