@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
+using MongoDB.Driver.Linq;
 using MyMongoInterface.Extensions;
 using MyMongoInterface.Models.DTOs;
 using MyMongoInterface.Models.Entities;
@@ -35,7 +36,7 @@ namespace MyMongoInterface.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<CourseDTO>> GetCourse([FromRoute] string id, [FromServices] StudentContext context)
         {
-            var entity = await context.Courses.Find(x => x.Id == id).FirstAsync();
+            var entity = await context.Courses.AsQueryable().FirstOrDefaultAsync(x => x.Id == id);
 
             return entity != null ? Ok(entity) : NotFound(id);
         }
@@ -43,18 +44,19 @@ namespace MyMongoInterface.Controllers
         [HttpGet]
         public async Task<ActionResult<List<CourseDTO>>> GetCourses([FromServices] StudentContext context)
         {
-            return Ok(await context.Courses.Find(_ => true).ToListAsync());
+            return Ok(await context.Courses.AsQueryable().ToListAsync());
         }
 
         [HttpPut("{id}")]
         public async Task<ActionResult> UpdateCourse([FromRoute] string id, [FromBody] CourseDTO course, [FromServices] StudentContext context)
         {
-            var entity = await context.Courses.Find(x => x.Id == id).FirstOrDefaultAsync();
+            var entity = await context.Courses.AsQueryable().FirstOrDefaultAsync(x => x.Id == id);
             
             entity.Id = id;
+
             entity.UpdateFromDTO(course);
 
-            await context.Courses.FindOneAndReplaceAsync(x => x.Id == id, entity);
+            await context.Courses.ReplaceOneAsync(x => x.Id == id, entity);
             
             return Ok();
         }

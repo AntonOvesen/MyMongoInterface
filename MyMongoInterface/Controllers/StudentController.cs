@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDB.Driver.Linq;
 using MyMongoInterface.Models.DTOs;
 using MyMongoInterface.Models.Entities;
 using MyMongoInterface.Persistence;
@@ -35,7 +36,7 @@ namespace MyMongoInterface.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<StudentDTO>> GetStudent([FromRoute] string id, [FromServices] StudentContext context)
         {
-            var entity = await context.Students.Find(x => x.Id == id).FirstOrDefaultAsync();
+            var entity = await context.Students.AsQueryable().FirstOrDefaultAsync(x => x.Id == id);
 
             if (entity == null) { return NotFound(); }
 
@@ -45,13 +46,14 @@ namespace MyMongoInterface.Controllers
         [HttpGet]
         public async Task<ActionResult<List<StudentDTO>>> GetStudents([FromServices] StudentContext context)
         {
-            return Ok(await context.Students.Find(x => true).ToListAsync());
+            return Ok(await context.Students.AsQueryable().ToListAsync());
         }
 
         [HttpPut("{id}")]
         public async Task<ActionResult> UpdateStudent([FromRoute] string id, [FromBody] StudentDTO student, [FromServices] StudentContext context)
         {
-            if (await context.Students.Find(x => x.Id == id).FirstOrDefaultAsync() == null)
+            
+            if (await context.Students.AsQueryable().AnyAsync(x => x.Id == id))
             {
                 return NotFound();
             }
@@ -60,7 +62,7 @@ namespace MyMongoInterface.Controllers
 
             entity.Id = id;
 
-            await context.Students.FindOneAndReplaceAsync(s => s.Id == id, entity);
+            await context.Students.ReplaceOneAsync(s => s.Id == id, entity);
 
             return Ok();
         }
@@ -68,7 +70,7 @@ namespace MyMongoInterface.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteStudent([FromRoute] string id, [FromServices] StudentContext context)
         {
-            if (await context.Students.Find(x => x.Id == id).FirstOrDefaultAsync() == null)
+            if (await context.Students.AsQueryable().AnyAsync(x => x.Id == id))
             {
                 return NotFound();
             }
@@ -81,9 +83,9 @@ namespace MyMongoInterface.Controllers
         [HttpGet("{id}/courses")]
         public async Task<ActionResult<List<CourseDTO>>> GetCoursesForStudent([FromRoute] string id, [FromServices] StudentContext context)
         {
-            var student = await context.Students.Find(x => x.Id == id).FirstOrDefaultAsync();
+            var student = await context.Students.AsQueryable().FirstOrDefaultAsync(x => x.Id == id);
 
-            var courses = await context.Courses.Find(c => student.Courses.Contains(c.Id)).ToListAsync();
+            var courses = await context.Courses.AsQueryable().Where(c => student.Courses.Contains(c.Id)).ToListAsync();
 
             return Ok(courses);
         }
@@ -91,14 +93,16 @@ namespace MyMongoInterface.Controllers
         [HttpPut("{id}/courses/{courseId}/join")]
         public async Task<ActionResult> StudentJoinCourse([FromRoute] string id, [FromRoute] string courseId, [FromServices] StudentContext context)
         {
-            bool CourseExists = await context.Courses.Find(x => x.Id == courseId).AnyAsync();
-            bool StudentExists = await context.Students.Find(x => x.Id == id).AnyAsync();
+            bool CourseExists = await context.Courses.AsQueryable().AnyAsync(x => x.Id == courseId);
+            bool StudentExists = await context.Students.AsQueryable().AnyAsync(x => x.Id == id);
 
             if (!CourseExists || !StudentExists) { return NotFound(); }
 
-            var update = Builders<Student>.Update.AddToSet(x => x.Courses, courseId);
+            var student = await context.Students.AsQueryable().FirstAsync(x => x.Id == id);
+            
+            student.Courses.Add(courseId);
 
-            var student = await context.Students.UpdateOneAsync(x => x.Id == id, update);
+            await context.Students.ReplaceOneAsync(x => x.Id == id, student);
 
             return Ok();
         }
@@ -106,15 +110,13 @@ namespace MyMongoInterface.Controllers
         [HttpPut("{id}/courses/{courseId}/leave")]
         public async Task<ActionResult> StudentLeaveCourse([FromRoute] string id, [FromRoute] string courseId, [FromServices] StudentContext context)
         {
-            bool CourseExists = await context.Courses.Find(x => x.Id == courseId).AnyAsync();
-            bool StudentExists = await context.Students.Find(x => x.Id == id).AnyAsync();
-            bool StudentsHasCourse = await context.Students.Find(x => x.Courses.Contains(courseId)).AnyAsync();
+            var student = await context.Students.AsQueryable().FirstOrDefaultAsync(x => x.Id == id);
 
-            if (!CourseExists || !StudentExists || !StudentsHasCourse) { return BadRequest(); }
+            if (student == null || !student.Courses.Contains(courseId)) { return BadRequest(); }
 
-            var update = Builders<Student>.Update.Pull(x => x.Courses, courseId);
+            student.Courses.Remove(courseId);
 
-            var student = await context.Students.UpdateOneAsync(x => x.Id == id, update);
+            await context.Students.ReplaceOneAsync(x => x.Id == id, student);
 
             return Ok();
         }
