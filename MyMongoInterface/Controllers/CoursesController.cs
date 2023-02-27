@@ -7,6 +7,7 @@ using MyMongoInterface.Models.DTOs;
 using MyMongoInterface.Models.Entities;
 using MyMongoInterface.Persistence;
 using System;
+using System.Linq;
 
 namespace MyMongoInterface.Controllers
 {
@@ -64,7 +65,23 @@ namespace MyMongoInterface.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteCourse([FromRoute] string id, [FromServices] StudentContext context)
         {
-            return Ok(await context.Courses.DeleteOneAsync(x => x.Id == id));
+            // Transactions like this doesnt work on "Standalone server". Aka hosting one in docker not cool enough.
+            //await context.ExecuteTransactionAsync(async (s, ct) =>
+            //{
+            //    await context.Courses.DeleteOneAsync(x => x.Id == id);
+
+            //    var pullUpdate = Builders<Student>.Update.Pull(x => x.Courses, id);
+
+            //    return context.Students.UpdateManyAsync(x => x.Courses.Contains(id), pullUpdate);
+            //});
+
+            await context.Courses.DeleteOneAsync(x => x.Id == id);
+
+            var pullUpdate = Builders<Student>.Update.Pull(x => x.Courses, id);
+
+            await context.Students.UpdateManyAsync(x => x.Courses.Contains(id), pullUpdate);
+
+            return Ok();
         }
     }
 }
