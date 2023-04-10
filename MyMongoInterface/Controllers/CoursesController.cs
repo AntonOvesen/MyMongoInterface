@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
+using MyMongoInterface.DAL;
 using MyMongoInterface.Extensions;
 using MyMongoInterface.Models.DTOs;
 using MyMongoInterface.Models.Entities;
@@ -17,19 +18,20 @@ namespace MyMongoInterface.Controllers
     {
         private readonly IServiceProvider provider;
         private readonly IMapper mapper;
+        private readonly ICoursesDAL coursesDAL;
 
-        public CoursesController(IServiceProvider provider, IMapper mapper)
+        public CoursesController(IServiceProvider provider, IMapper mapper, ICoursesDAL coursesDAL)
         {
             this.provider = provider;
             this.mapper = mapper;
+            this.coursesDAL = coursesDAL;
         }
 
         [HttpPost]
-        public async Task<ActionResult<string>> CreateCourse([FromBody] CourseDTO course, [FromServices] StudentContext context)
+        public async Task<ActionResult<string>> CreateCourse([FromBody] CourseDTO course)
         {
-            var entity = mapper.Map<Course>(course);
-
-            await context.Courses.InsertOneAsync(entity);
+            var entity = await coursesDAL.Create(course);
+            
 
             return Ok(entity.Id);
         }

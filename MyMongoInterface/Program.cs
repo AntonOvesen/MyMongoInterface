@@ -1,4 +1,5 @@
 using MyMongoInterface.AutoMapper;
+using MyMongoInterface.DAL;
 using MyMongoInterface.Extensions;
 using MyMongoInterface.Persistence;
 
@@ -10,6 +11,8 @@ Services.AddEndpointsApiExplorer();
 Services.AddSwaggerGen();
 
 Services.AddMongoDbContext<StudentContext>("myTestDatabase", Configuration);
+
+Services.AddTransient<IStudentDAL, StudentDAL>();
 
 Services.AddAutoMapper(typeof(MappingProfile));
 

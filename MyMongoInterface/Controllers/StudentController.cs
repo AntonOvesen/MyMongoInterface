@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
+using MyMongoInterface.DAL;
 using MyMongoInterface.Models.DTOs;
 using MyMongoInterface.Models.Entities;
 using MyMongoInterface.Persistence;
@@ -14,29 +15,27 @@ namespace MyMongoInterface.Controllers
     [Route("api/[Controller]")]
     public class StudentsController : ControllerBase
     {
-        private readonly IServiceProvider provider;
         private readonly IMapper mapper;
+        private readonly IStudentDAL studentDAL;
 
-        public StudentsController(IServiceProvider provider, IMapper mapper)
+        public StudentsController(IMapper mapper, IStudentDAL studentDAL)
         {
-            this.provider = provider;
             this.mapper = mapper;
+            this.studentDAL = studentDAL;
         }
 
         [HttpPost]
-        public async Task<ActionResult> CreateStudent([FromBody] StudentDTO student, [FromServices] StudentContext context)
+        public async Task<ActionResult> CreateStudent([FromBody] StudentDTO student)
         {
-            var entity = mapper.Map<Student>(student);
-
-            await context.Students.InsertOneAsync(entity);
+            var entity = await studentDAL.Create(student);
 
             return Ok(entity.Id);
         }
 
         [HttpGet("{id}")]
-        public async Task<ActionResult<StudentDTO>> GetStudent([FromRoute] string id, [FromServices] StudentContext context)
+        public async Task<ActionResult<StudentDTO>> GetStudent([FromRoute] string id)
         {
-            var entity = await context.Students.AsQueryable().FirstOrDefaultAsync(x => x.Id == id);
+            var entity = await studentDAL.GetById(id);
 
             if (entity == null) { return NotFound(); }
 
@@ -44,38 +43,28 @@ namespace MyMongoInterface.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<StudentDTO>>> GetStudents([FromServices] StudentContext context)
+        public async Task<ActionResult<List<StudentDTO>>> GetStudents()
         {
-            return Ok(await context.Students.AsQueryable().ToListAsync());
+            return Ok(await studentDAL.GetAll());
         }
 
         [HttpPut("{id}")]
-        public async Task<ActionResult> UpdateStudent([FromRoute] string id, [FromBody] StudentDTO student, [FromServices] StudentContext context)
+        public async Task<ActionResult> UpdateStudent([FromRoute] string id, [FromBody] StudentDTO student)
         {
-            
-            if (await context.Students.AsQueryable().AnyAsync(x => x.Id == id))
-            {
-                return NotFound();
-            }
-
-            var entity = mapper.Map<Student>(student);
-
-            entity.Id = id;
-
-            await context.Students.ReplaceOneAsync(s => s.Id == id, entity);
+            await studentDAL.Update(id, student);
 
             return Ok();
         }
       
         [HttpDelete("{id}")]
-        public async Task<ActionResult> DeleteStudent([FromRoute] string id, [FromServices] StudentContext context)
+        public async Task<ActionResult> DeleteStudent([FromRoute] string id)
         {
-            if (await context.Students.AsQueryable().AnyAsync(x => x.Id == id))
+            if (!await studentDAL.Exists(id))
             {
                 return NotFound();
             }
 
-            await context.Students.DeleteOneAsync(x => x.Id == id);
+            await studentDAL.Delete(id);
 
             return Ok();
         }
